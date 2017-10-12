@@ -15,14 +15,15 @@
  * You should have received a copy of the GNU General Public License
  * along with OXID eShop Community Edition.  If not, see <http://www.gnu.org/licenses/>.
  *
- * @link      http://www.oxid-esales.com
+ * @link          http://www.oxid-esales.com
  * @copyright (C) OXID eSales AG 2003-2016
- * @version   OXID eShop CE
+ * @version       OXID eShop CE
  */
+
 namespace OxidEsales\EshopCommunity\Tests\Unit\Setup;
 
+use Exception;
 use OxidEsales\EshopCommunity\Setup\Utilities;
-use \Exception;
 
 require_once getShopBasePath() . '/Setup/functions.php';
 
@@ -31,6 +32,7 @@ require_once getShopBasePath() . '/Setup/functions.php';
  */
 class UtilitiesTest extends \OxidTestCase
 {
+
     protected $_sPathTranslated = null;
     protected $_sScriptFilename = null;
     protected $_sHttpReferer = null;
@@ -56,7 +58,7 @@ class UtilitiesTest extends \OxidTestCase
 
         parent::setUp();
 
-        $this->configTestPath = __DIR__ .'/../testData/Setup';
+        $this->configTestPath = __DIR__ . '/../testData/Setup';
         $this->removeTestFile();
     }
 
@@ -217,29 +219,52 @@ class UtilitiesTest extends \OxidTestCase
         $this->assertTrue(function_exists('getDefaultConfigFileMode'), 'missing function getDefaultConfigFileMode');
 
         $utilities = new Utilities();
-        $password = 'l3$z4f#buzhdc$1\1\\1\2v5745XC$lic';
+        $password = 'l3$z4f#bu\'xyz\\\'zh"ad\\"dc$1\1\\1\2v5745XC$lic';
         $url = 'http://test.myoxidshop.com';
 
-        $originalFile = $this->configTestPath . '/config.inc.php.dist';
-        $destination = $this->configTestPath . '/config.inc.php';
+        /** @var  $originalFile take the real config.inc.php.dist for testing as this is the blueprint for config.inc.php */
+        $originalFile = OX_BASE_PATH . 'config.inc.php.dist';
+        if (!realpath($originalFile)) {
+            $originalFile = VENDOR_PATH .
+                            'oxid-esales' . DIRECTORY_SEPARATOR .
+                            'oxideshop-ce' . DIRECTORY_SEPARATOR .
+                            'source' . DIRECTORY_SEPARATOR .
+                            'config.inc.php.dist';
+        }
+        if (!realpath($originalFile)) {
+            throw new Exception('Configuration file template \'config.inc.php.dist\' not found');
+        }
+        $destinationDirectory = realpath($this->configTestPath);
+        if (!is_writable(realpath($destinationDirectory))) {
+            throw new Exception($destinationDirectory . ' is not writable');
+        }
 
-        file_put_contents($destination, file_get_contents($originalFile));
-        $this->assertNotContains($password, $destination);
+        $destinationFile = $destinationDirectory . '/config.inc.php';
+        file_put_contents($destinationFile, file_get_contents($originalFile));
+        $this->assertNotContains($password, $destinationFile);
 
-        $parameters = ['sShopDir' => $this->configTestPath,
-                       'testPassword' => $password,
-                       'testUrl' => $url];
+        $configParameters = [
+            'sShopDir' => $destinationDirectory,
+            'dbPwd'    => $password,
+            'sShopURL' => $url
+        ];
 
         //check
         try {
-            $utilities->updateConfigFile($parameters);
+            $utilities->updateConfigFile($configParameters);
         } catch (Exception $exception) {
             $this->fail($exception->getMessage());
         }
 
-        $content = file_get_contents($this->configTestPath . '/config.inc.php');
-        $this->assertContains($url, $content);
-        $this->assertContains($password, $content);
+        /**
+         * Test if the _values_ are assigned correctly:
+         * - file can be parsed without problems
+         * - the properties are set to the correct values
+         */
+        include $destinationFile;
+        foreach ($configParameters as $key => $value) {
+            $this->assertEquals($value, $this->{$key}, "The value for the parameter $key was not updated as expected");
+        }
     }
 
     /**
