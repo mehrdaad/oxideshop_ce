@@ -29,7 +29,7 @@ use oxNavigationTree;
 use oxShop;
 
 /**
- * @internal This class should not be directly extended, instead of it oxAdminView class should be used.
+ * Main Controller class for admin area.
  */
 class AdminController extends \OxidEsales\Eshop\Core\Controller\BaseController
 {
